@@ -7,7 +7,7 @@ export interface Param<A extends string, B extends t.Type<C>, C> {
   type: B;
 }
 
-type PathArgs = {
+type EndpointArgs = {
   parts: (string | Param<any, any, any>)[];
   queryParams: {[key: string]: t.Type<any>};
 };
@@ -15,7 +15,7 @@ type PathArgs = {
 type GetIoTSType<A> = A extends t.Type<infer B> ? B : never;
 type GetTSParams<T> = T extends {[key in keyof T]: any} ? {[key in keyof T]: GetIoTSType<T[key]>} : never;
 
-type PathMatch<T> = {params: GetTSParams<T>; rest: Partial<Record<string, string>>};
+type EndpointMatch<T> = {params: GetTSParams<T>; rest: Partial<Record<string, string>>};
 
 function stringToValue(value?: string): unknown {
   if (value == null) {
@@ -30,38 +30,37 @@ function stringToValue(value?: string): unknown {
 
 type ExtractParam<A> = A extends `:${infer B}` ? B : never;
 
-export class Path<N extends string, T> {
-  private readonly args: PathArgs;
+export class Endpoint<N extends string, T> {
+  private readonly args: EndpointArgs;
 
-  constructor(public readonly name: N, args: Partial<PathArgs> = {}) {
+  constructor(public readonly name: N, args: Partial<EndpointArgs> = {}) {
     this.args = {
       parts: args.parts || [],
       queryParams: args.queryParams || {},
     };
   }
 
-  public p(name: string): Path<N, T>;
+  public p(name: string): Endpoint<N, T>;
   public p<P extends string, A extends ExtractParam<P>, B extends t.Type<C>, C>(
     name: P,
     type: t.Type<C>
-  ): Path<N, T & {[key in A]: B}>;
-  public p<A extends string, C>(name: A, type?: t.Type<C>): Path<N, T> {
+  ): Endpoint<N, T & {[key in A]: B}>;
+  public p<Q extends {[key: string]: t.Type<any>}>(params: Q): Endpoint<N, T & Q>;
+  public p(nameOrParams: any, type?: t.Type<any>): Endpoint<any, any> {
     if (type != null) {
-      const paramName = name.replace(/^:/, "");
-      return new Path(this.name, {
+      const paramName = nameOrParams.replace(/^:/, "");
+      return new Endpoint(this.name, {
         ...this.args,
-        parts: [...this.args.parts, type != null ? {name: paramName, type} : name],
+        parts: [...this.args.parts, type != null ? {name: paramName, type} : nameOrParams],
       });
+    } else if (typeof nameOrParams === "string") {
+      return new Endpoint(this.name, {...this.args, parts: [...this.args.parts, nameOrParams]});
     } else {
-      return new Path(this.name, {...this.args, parts: [...this.args.parts, name]});
+      return new Endpoint(this.name, {...this.args, queryParams: {...this.args.queryParams, ...nameOrParams}});
     }
   }
 
-  public q<Q extends {[key: string]: t.Type<any>}>(params: Q): Path<N, T & Q> {
-    return new Path(this.name, {...this.args, queryParams: {...this.args.queryParams, ...params}});
-  }
-
-  public match(uri: string): PathMatch<T> | undefined {
+  public match(uri: string): EndpointMatch<T> | undefined {
     const url = new URL(uri, "http://www.example.com");
     const urlPathParts = url.pathname.split("/").filter((p) => p);
     const params: Record<string, any> = {};
@@ -107,7 +106,9 @@ export class Path<N extends string, T> {
         fold(
           () => false,
           (data) => {
-            params[key] = data;
+            if (data != null) {
+              params[key] = data;
+            }
             return true;
           }
         )
@@ -137,21 +138,21 @@ export class Path<N extends string, T> {
     const url = new URL(path, host || "http://example.com");
     for (const key of Object.keys(this.args.queryParams)) {
       const param = this.args.queryParams[key];
-      const value = param.encode(paramsAny[param.name]);
-      url.searchParams.set(key, value);
+      const value = param.encode(paramsAny[key]);
+      if (value != null) {
+        url.searchParams.set(key, value);
+      }
     }
     return host != null ? url.toString() : url.pathname + url.search;
   }
 }
 
-// const path3 = Path.build("getPeople", ["foo", "bar", ["person", t.string], "get"]);
-
 type Method = "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "OPTIONS" | "HEAD" | "ANY";
 
-type RouteCallback<T> = (method: Method, url: string, pathMatch: PathMatch<T>) => void;
+type RouteCallback<T> = (method: Method, url: string, endpointMatch: EndpointMatch<T>) => void;
 
 interface Route<N extends string, T> {
-  path: Path<N, T>;
+  endpoint: Endpoint<N, T>;
   method: Method;
   callback: RouteCallback<T>;
 }
@@ -167,59 +168,77 @@ class Router<T> {
     this.args = {routes: args.routes || []};
   }
 
-  public get<N extends string, U>(path: Path<N, U>, callback: RouteCallback<U>): Router<T & {[P in N]: Route<N, U>}> {
-    return this.add("GET", path, callback);
+  public get<N extends string, U>(
+    endpoint: Endpoint<N, U>,
+    callback: RouteCallback<U>
+  ): Router<T & {[P in N]: Route<N, U>}> {
+    return this.add("GET", endpoint, callback);
   }
 
-  public post<N extends string, U>(path: Path<N, U>, callback: RouteCallback<U>): Router<T & {[P in N]: Route<N, U>}> {
-    return this.add("POST", path, callback);
+  public post<N extends string, U>(
+    endpoint: Endpoint<N, U>,
+    callback: RouteCallback<U>
+  ): Router<T & {[P in N]: Route<N, U>}> {
+    return this.add("POST", endpoint, callback);
   }
 
-  public put<N extends string, U>(path: Path<N, U>, callback: RouteCallback<U>): Router<T & {[P in N]: Route<N, U>}> {
-    return this.add("PUT", path, callback);
+  public put<N extends string, U>(
+    endpoint: Endpoint<N, U>,
+    callback: RouteCallback<U>
+  ): Router<T & {[P in N]: Route<N, U>}> {
+    return this.add("PUT", endpoint, callback);
   }
 
   public delete<N extends string, U>(
-    path: Path<N, U>,
+    endpoint: Endpoint<N, U>,
     callback: RouteCallback<U>
   ): Router<T & {[P in N]: Route<N, U>}> {
-    return this.add("DELETE", path, callback);
+    return this.add("DELETE", endpoint, callback);
   }
 
-  public patch<N extends string, U>(path: Path<N, U>, callback: RouteCallback<U>): Router<T & {[P in N]: Route<N, U>}> {
-    return this.add("PATCH", path, callback);
+  public patch<N extends string, U>(
+    endpoint: Endpoint<N, U>,
+    callback: RouteCallback<U>
+  ): Router<T & {[P in N]: Route<N, U>}> {
+    return this.add("PATCH", endpoint, callback);
   }
 
   public options<N extends string, U>(
-    path: Path<N, U>,
+    endpoint: Endpoint<N, U>,
     callback: RouteCallback<U>
   ): Router<T & {[P in N]: Route<N, U>}> {
-    return this.add("OPTIONS", path, callback);
+    return this.add("OPTIONS", endpoint, callback);
   }
 
-  public head<N extends string, U>(path: Path<N, U>, callback: RouteCallback<U>): Router<T & {[P in N]: Route<N, U>}> {
-    return this.add("HEAD", path, callback);
+  public head<N extends string, U>(
+    endpoint: Endpoint<N, U>,
+    callback: RouteCallback<U>
+  ): Router<T & {[P in N]: Route<N, U>}> {
+    return this.add("HEAD", endpoint, callback);
   }
 
-  public any<N extends string, U>(path: Path<N, U>, callback: RouteCallback<U>): Router<T & {[P in N]: Route<N, U>}> {
-    return this.add("ANY", path, callback);
+  public any<N extends string, U>(
+    endpoint: Endpoint<N, U>,
+    callback: RouteCallback<U>
+  ): Router<T & {[P in N]: Route<N, U>}> {
+    return this.add("ANY", endpoint, callback);
   }
 
   public add<N extends string, U>(
     method: Method,
-    path: Path<N, U>,
+    endpoint: Endpoint<N, U>,
     callback: RouteCallback<U>
   ): Router<T & {[P in N]: Route<N, U>}> {
-    const route: Route<N, U> = {method, path, callback};
+    const route: Route<N, U> = {method, endpoint, callback};
     return new Router({...this.args, routes: [...this.args.routes, route]});
   }
 
   public handle(method: Method, url: string): boolean {
     for (const route of this.args.routes) {
       if (route.method === method || route.method === "ANY") {
-        const pathMatch = route.path.match(url);
-        if (pathMatch != null) {
-          route.callback(method, url, pathMatch);
+        const endpointMatch = route.endpoint.match(url);
+        if (endpointMatch != null) {
+          route.callback(method, url, endpointMatch);
           return true;
         }
       }
@@ -227,31 +246,36 @@ class Router<T> {
     return false;
   }
 
-  public path<U extends keyof T>(name: U): T[U] extends Route<any, any> ? T[U]["path"] : never {
-    return this.args.routes.find((r) => r.path.name === name)!.path as any;
+  public endpoint<U extends keyof T>(name: U): T[U] extends Route<any, any> ? T[U]["endpoint"] : never {
+    return this.args.routes.find((r) => r.endpoint.name === name)!.endpoint as any;
   }
 }
 
+// const path = new Path("getPeople").b`posts`(`:postId`, t.number)`comments`(
+//   ":commentId",
+//   t.number
+// )({page: t.number, perPage: t.number});
+
 // adding /foo/bar/:person/get?count=number
-const path = new Path("getPeople")
-  .p("foo")
-  .p("bar")
-  .p(":person", t.string)
-  .p("get")
-  .q({count: t.array(t.number)});
-console.log(path);
-const params = path.match("/foo/bar/as3/get?count=[1,2,3]&foo=bar");
+
+const endpoint = new Endpoint("getComments")
+  .p("posts")
+  .p(":id", t.number)
+  .p("comments")
+  .p({page: t.number, perPage: t.number, filterIds: t.array(t.number)});
+console.log(endpoint);
+const params = endpoint.match("/posts/1/comments?page=1&perPage=3");
 console.log(params);
-const url = path.toUrl({count: [1, 4], person: "john"});
+const url = endpoint.toUrl({filterIds: [1, 2, 3], page: 1, perPage: 3, id: 3});
 console.log(url);
 
 console.log("ROUTER");
 const router = new Router()
-  .get(path, (method, url, params) => console.log(method, url, params))
-  .get(new Path("getPosts").p("posts").p(":id", t.number), (m, u, {params}) => console.log(params.id));
+  .get(endpoint, (method, url, params) => console.log(method, url, params))
+  .get(new Endpoint("getPosts").p("posts").p(":id", t.number), (m, u, {params}) => console.log(params.id));
 const result = router.handle("GET", "/foo/bar/as3/get?count=[1,2,3]&foo=bar");
 console.log(result);
-const path2 = router.path("getPosts").toUrl({id: 3});
+const path2 = router.endpoint("getPosts").toUrl({id: 3});
 console.log(path2);
 
 // router = router.get(path, ({param, person}) => {
