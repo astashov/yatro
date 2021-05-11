@@ -49,17 +49,17 @@ Now, we can add those `Endpoint`s instances to a `Router`:
 import {Endpoint, Router} from "yatro";
 
 const postCommentsEndpoint = Endpoint.build("postComments", "/posts/:postName/comments", {
-  author: "string"
+  author: "string",
   page: "number",
   perPage: "number",
 });
 const addComment = Endpoint.build("addComment", "/posts/:postName/comments", {});
 
 const router = new Router()
-  .get(postCommentsEndpoint, (method, url, params) => {
-    // params here will be of type {postName: string; page: number; perPage: number, author: string}
+  .get(postCommentsEndpoint, (args) => {
+    // args.match.params here will be of type {postName: string; page: number; perPage: number, author: string}
   })
-  .post(addComment, (method, url, params) => {
+  .post(addComment, () => {
     // handle post here
   });
 ```
@@ -78,6 +78,25 @@ You can also fetch an endpoint by name from a router, that also will be typesafe
 router.endpoint("postComments").toUrl({postName: "cool-post", page: 3, perPage: 8, author: "john"});
 // /posts/cool-post/comments?page=3&perPage=8&author=john
 ```
+
+There's also short syntax for adding routes, without explicit creating of endpoint instances:
+
+```ts
+const router = new Router().get("postComments", "/posts/:postName/comments", {page: "number"}, (args) => {
+  // args.match.params here will be of type {postName: string; page: number}
+});
+```
+
+You can also initialize `Router` with any object, and it will be passed into the routes (and will be typesafe too!)
+
+```ts
+const router = new Router({foo: "bar"}).get("post", "/posts/:postName", {}, (args) => {
+  console.log(args.payload);
+  // {foo: "bar"}
+});
+```
+
+You could use it to pass e.g. the request object into the route handlers.
 
 ### Advanced
 
@@ -130,3 +149,71 @@ const endpoint = new Endpoint("postComments")
 ```
 
 This way, you can also specify any `io-ts` type for the `postName` path param, not only `"string"` or `"number"`.
+
+### Web server example
+
+You could use it together with e.g. Node's `http` library like this:
+
+```ts
+import http from "http";
+import {Endpoint, Router, Method, RouteHandler} from "yatro";
+
+interface IRequest {
+  req: http.IncomingMessage;
+  res: http.ServerResponse;
+}
+
+const endpoints = {
+  postComments: Endpoint.build("postComments", "/posts/:postName/comments", {
+    page: "number",
+    perPage: "number",
+  }),
+  addComment: Endpoint.build("addComment", "/posts/:postName/comment/create", {}),
+} as const;
+
+const handleAddComments: RouteHandler<IRequest, typeof endpoints.addComment> = (args) => {
+  // ---
+  // Add comment to the database somehow here
+  // ---
+  const {params} = args.match;
+  res.statusCode = 302;
+  const location = endpoints.postComments.toUrl(
+    {postName: params.postName, page: 1, perPage: 8},
+    "http://www.example.com"
+  );
+  res.setHeader("Location", location);
+  res.end("");
+};
+
+const handlePostComments: RouteHandler<IRequest, typeof endpoints.postComments> = (args) => {
+  // ---
+  // Fetch comments from the database somehow here
+  // ---
+  res.statusCode = 200;
+  res.setHeader("Content-Type", "text/html");
+  res.body(renderComments(comments));
+};
+
+const server = http.createServer(async (req, res) => {
+  try {
+    const url = new URL(req.url!);
+
+    const router = new Router({req, res})
+      .get(endpoints.postComments, handlePostComments)
+      .post(endpoints.addComment, handleAddComments);
+
+    const isHandled = router.handle(req.method as Method, url.pathname + url.search);
+    if (!isHandled) {
+      res.statusCode = 404;
+      res.end("Not Found");
+    }
+  } catch (e) {
+    res.statusCode = 500;
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({name: e.name, error: e.message, stack: e.stack}));
+  }
+});
+server.listen(3000, "localhost", () => {
+  console.log(`--------- Server is running ----------`);
+});
+```

@@ -1,90 +1,214 @@
-import {Endpoint} from "./endpoint";
-import {EndpointMatch} from "./types";
+import {Endpoint, ParamType} from "./endpoint";
+import {EndpointMatch, ExtractRouteParams} from "./types";
 
 export type Method = "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "OPTIONS" | "HEAD" | "ANY";
 
-export interface Route<N extends string, T> {
-  endpoint: Endpoint<N, T>;
+export interface Route<_Name extends string, _PTypes, _Routes, _Payload> {
+  endpoint: Endpoint<_Name, _PTypes>;
   method: Method;
-  callback: RouteCallback<T>;
+  callback: IntRouteCallback<_Payload, _PTypes>;
 }
 
-export type RouteCallback<T> = (method: Method, url: string, endpointMatch: EndpointMatch<T>) => void;
+export type RouteHandler<_Payload, _Endpoint> = _Endpoint extends Endpoint<infer _Name, infer _PTypes>
+  ? IntRouteCallback<_Payload, _PTypes>
+  : never;
+
+export type IntRouteCallback<_Payload, _PTypes> = (args: {
+  payload: _Payload;
+  method: Method;
+  url: string;
+  match: EndpointMatch<_PTypes>;
+}) => void;
 
 export type RouterArgs = {
-  routes: Route<any, any>[];
+  routes: Route<any, any, any, any>[];
 };
 
-export class Router<T> {
+export class Router<_Routes, _Payload> {
   private readonly args: RouterArgs;
+  private readonly payload: _Payload;
 
-  constructor(args: Partial<RouterArgs> = {}) {
-    this.args = {routes: args.routes || []};
+  constructor(payload: _Payload, args: Partial<RouterArgs> = {}) {
+    this.payload = payload;
+    this.args = {
+      routes: args.routes || [],
+    };
   }
 
-  public get<N extends string, U>(
-    endpoint: Endpoint<N, U>,
-    callback: RouteCallback<U>
-  ): Router<T & {[P in N]: Route<N, U>}> {
-    return this.add("GET", endpoint, callback);
+  public get<_Name extends string, _PTypes>(
+    endpoint: Endpoint<_Name, _PTypes>,
+    callback: IntRouteCallback<_Payload, _PTypes>
+  ): Router<_Routes & {[P in _Name]: Route<_Name, _PTypes, _Routes, _Payload>}, _Payload>;
+  public get<_Name extends string, _Path extends string, _QS extends {[key: string]: ParamType<any>}>(
+    name: _Name,
+    path: _Path,
+    queryParams: _QS,
+    callback: IntRouteCallback<_Payload, ExtractRouteParams<_Path> & _QS>
+  ): Router<_Routes & {[P in _Name]: Route<_Name, ExtractRouteParams<_Path> & _QS, _Routes, _Payload>}, _Payload>;
+  public get<_Name extends string, _PTypes, _Path extends string, _QS extends {[key: string]: ParamType<any>}>(
+    nameOrEndpoint: _Name | Endpoint<_Name, _PTypes>,
+    pathOrCallback: _Path | IntRouteCallback<_Payload, _PTypes>,
+    q?: _QS,
+    cb?: IntRouteCallback<_Payload, ExtractRouteParams<_Path> & _QS>
+  ): any {
+    return this.add("GET", nameOrEndpoint, pathOrCallback, q, cb);
   }
 
-  public post<N extends string, U>(
-    endpoint: Endpoint<N, U>,
-    callback: RouteCallback<U>
-  ): Router<T & {[P in N]: Route<N, U>}> {
-    return this.add("POST", endpoint, callback);
+  public post<_Name extends string, _PTypes>(
+    endpoint: Endpoint<_Name, _PTypes>,
+    callback: IntRouteCallback<_Payload, _PTypes>
+  ): Router<_Routes & {[P in _Name]: Route<_Name, _PTypes, _Routes, _Payload>}, _Payload>;
+  public post<_Name extends string, _Path extends string, _QS extends {[key: string]: ParamType<any>}>(
+    name: _Name,
+    path: _Path,
+    queryParams: _QS,
+    callback: IntRouteCallback<_Payload, ExtractRouteParams<_Path> & _QS>
+  ): Router<_Routes & {[P in _Name]: Route<_Name, ExtractRouteParams<_Path> & _QS, _Routes, _Payload>}, _Payload>;
+  public post<_Name extends string, _PTypes, _Path extends string, _QS extends {[key: string]: ParamType<any>}>(
+    nameOrEndpoint: _Name | Endpoint<_Name, _PTypes>,
+    pathOrCallback: _Path | IntRouteCallback<_Payload, _PTypes>,
+    q?: _QS,
+    cb?: IntRouteCallback<_Payload, ExtractRouteParams<_Path> & _QS>
+  ): any {
+    return this.add("POST", nameOrEndpoint, pathOrCallback, q, cb);
   }
 
-  public put<N extends string, U>(
-    endpoint: Endpoint<N, U>,
-    callback: RouteCallback<U>
-  ): Router<T & {[P in N]: Route<N, U>}> {
-    return this.add("PUT", endpoint, callback);
+  public put<_Name extends string, _PTypes>(
+    endpoint: Endpoint<_Name, _PTypes>,
+    callback: IntRouteCallback<_Payload, _PTypes>
+  ): Router<_Routes & {[P in _Name]: Route<_Name, _PTypes, _Routes, _Payload>}, _Payload>;
+  public put<_Name extends string, _Path extends string, _QS extends {[key: string]: ParamType<any>}>(
+    name: _Name,
+    path: _Path,
+    queryParams: _QS,
+    callback: IntRouteCallback<_Payload, ExtractRouteParams<_Path> & _QS>
+  ): Router<_Routes & {[P in _Name]: Route<_Name, ExtractRouteParams<_Path> & _QS, _Routes, _Payload>}, _Payload>;
+  public put<_Name extends string, _PTypes, _Path extends string, _QS extends {[key: string]: ParamType<any>}>(
+    nameOrEndpoint: _Name | Endpoint<_Name, _PTypes>,
+    pathOrCallback: _Path | IntRouteCallback<_Payload, _PTypes>,
+    q?: _QS,
+    cb?: IntRouteCallback<_Payload, ExtractRouteParams<_Path> & _QS>
+  ): any {
+    return this.add("PUT", nameOrEndpoint, pathOrCallback, q, cb);
   }
 
-  public delete<N extends string, U>(
-    endpoint: Endpoint<N, U>,
-    callback: RouteCallback<U>
-  ): Router<T & {[P in N]: Route<N, U>}> {
-    return this.add("DELETE", endpoint, callback);
+  public delete<_Name extends string, _PTypes>(
+    endpoint: Endpoint<_Name, _PTypes>,
+    callback: IntRouteCallback<_Payload, _PTypes>
+  ): Router<_Routes & {[P in _Name]: Route<_Name, _PTypes, _Routes, _Payload>}, _Payload>;
+  public delete<_Name extends string, _Path extends string, _QS extends {[key: string]: ParamType<any>}>(
+    name: _Name,
+    path: _Path,
+    queryParams: _QS,
+    callback: IntRouteCallback<_Payload, ExtractRouteParams<_Path> & _QS>
+  ): Router<_Routes & {[P in _Name]: Route<_Name, ExtractRouteParams<_Path> & _QS, _Routes, _Payload>}, _Payload>;
+  public delete<_Name extends string, _PTypes, _Path extends string, _QS extends {[key: string]: ParamType<any>}>(
+    nameOrEndpoint: _Name | Endpoint<_Name, _PTypes>,
+    pathOrCallback: _Path | IntRouteCallback<_Payload, _PTypes>,
+    q?: _QS,
+    cb?: IntRouteCallback<_Payload, ExtractRouteParams<_Path> & _QS>
+  ): any {
+    return this.add("DELETE", nameOrEndpoint, pathOrCallback, q, cb);
   }
 
-  public patch<N extends string, U>(
-    endpoint: Endpoint<N, U>,
-    callback: RouteCallback<U>
-  ): Router<T & {[P in N]: Route<N, U>}> {
-    return this.add("PATCH", endpoint, callback);
+  public patch<_Name extends string, _PTypes>(
+    endpoint: Endpoint<_Name, _PTypes>,
+    callback: IntRouteCallback<_Payload, _PTypes>
+  ): Router<_Routes & {[P in _Name]: Route<_Name, _PTypes, _Routes, _Payload>}, _Payload>;
+  public patch<_Name extends string, _Path extends string, _QS extends {[key: string]: ParamType<any>}>(
+    name: _Name,
+    path: _Path,
+    queryParams: _QS,
+    callback: IntRouteCallback<_Payload, ExtractRouteParams<_Path> & _QS>
+  ): Router<_Routes & {[P in _Name]: Route<_Name, ExtractRouteParams<_Path> & _QS, _Routes, _Payload>}, _Payload>;
+  public patch<_Name extends string, _PTypes, _Path extends string, _QS extends {[key: string]: ParamType<any>}>(
+    nameOrEndpoint: _Name | Endpoint<_Name, _PTypes>,
+    pathOrCallback: _Path | IntRouteCallback<_Payload, _PTypes>,
+    q?: _QS,
+    cb?: IntRouteCallback<_Payload, ExtractRouteParams<_Path> & _QS>
+  ): any {
+    return this.add("PATCH", nameOrEndpoint, pathOrCallback, q, cb);
   }
 
-  public options<N extends string, U>(
-    endpoint: Endpoint<N, U>,
-    callback: RouteCallback<U>
-  ): Router<T & {[P in N]: Route<N, U>}> {
-    return this.add("OPTIONS", endpoint, callback);
+  public options<_Name extends string, _PTypes>(
+    endpoint: Endpoint<_Name, _PTypes>,
+    callback: IntRouteCallback<_Payload, _PTypes>
+  ): Router<_Routes & {[P in _Name]: Route<_Name, _PTypes, _Routes, _Payload>}, _Payload>;
+  public options<_Name extends string, _Path extends string, _QS extends {[key: string]: ParamType<any>}>(
+    name: _Name,
+    path: _Path,
+    queryParams: _QS,
+    callback: IntRouteCallback<_Payload, ExtractRouteParams<_Path> & _QS>
+  ): Router<_Routes & {[P in _Name]: Route<_Name, ExtractRouteParams<_Path> & _QS, _Routes, _Payload>}, _Payload>;
+  public options<_Name extends string, _PTypes, _Path extends string, _QS extends {[key: string]: ParamType<any>}>(
+    nameOrEndpoint: _Name | Endpoint<_Name, _PTypes>,
+    pathOrCallback: _Path | IntRouteCallback<_Payload, _PTypes>,
+    q?: _QS,
+    cb?: IntRouteCallback<_Payload, ExtractRouteParams<_Path> & _QS>
+  ): any {
+    return this.add("OPTIONS", nameOrEndpoint, pathOrCallback, q, cb);
   }
 
-  public head<N extends string, U>(
-    endpoint: Endpoint<N, U>,
-    callback: RouteCallback<U>
-  ): Router<T & {[P in N]: Route<N, U>}> {
-    return this.add("HEAD", endpoint, callback);
+  public head<_Name extends string, _PTypes>(
+    endpoint: Endpoint<_Name, _PTypes>,
+    callback: IntRouteCallback<_Payload, _PTypes>
+  ): Router<_Routes & {[P in _Name]: Route<_Name, _PTypes, _Routes, _Payload>}, _Payload>;
+  public head<_Name extends string, _Path extends string, _QS extends {[key: string]: ParamType<any>}>(
+    name: _Name,
+    path: _Path,
+    queryParams: _QS,
+    callback: IntRouteCallback<_Payload, ExtractRouteParams<_Path> & _QS>
+  ): Router<_Routes & {[P in _Name]: Route<_Name, ExtractRouteParams<_Path> & _QS, _Routes, _Payload>}, _Payload>;
+  public head<_Name extends string, _PTypes, _Path extends string, _QS extends {[key: string]: ParamType<any>}>(
+    nameOrEndpoint: _Name | Endpoint<_Name, _PTypes>,
+    pathOrCallback: _Path | IntRouteCallback<_Payload, _PTypes>,
+    q?: _QS,
+    cb?: IntRouteCallback<_Payload, ExtractRouteParams<_Path> & _QS>
+  ): any {
+    return this.add("HEAD", nameOrEndpoint, pathOrCallback, q, cb);
   }
 
-  public any<N extends string, U>(
-    endpoint: Endpoint<N, U>,
-    callback: RouteCallback<U>
-  ): Router<T & {[P in N]: Route<N, U>}> {
-    return this.add("ANY", endpoint, callback);
+  public any<_Name extends string, _PTypes>(
+    endpoint: Endpoint<_Name, _PTypes>,
+    callback: IntRouteCallback<_Payload, _PTypes>
+  ): Router<_Routes & {[P in _Name]: Route<_Name, _PTypes, _Routes, _Payload>}, _Payload>;
+  public any<_Name extends string, _Path extends string, _QS extends {[key: string]: ParamType<any>}>(
+    name: _Name,
+    path: _Path,
+    queryParams: _QS,
+    callback: IntRouteCallback<_Payload, ExtractRouteParams<_Path> & _QS>
+  ): Router<_Routes & {[P in _Name]: Route<_Name, ExtractRouteParams<_Path> & _QS, _Routes, _Payload>}, _Payload>;
+  public any<_Name extends string, _PTypes, _Path extends string, _QS extends {[key: string]: ParamType<any>}>(
+    nameOrEndpoint: _Name | Endpoint<_Name, _PTypes>,
+    pathOrCallback: _Path | IntRouteCallback<_Payload, _PTypes>,
+    q?: _QS,
+    cb?: IntRouteCallback<_Payload, ExtractRouteParams<_Path> & _QS>
+  ): any {
+    return this.add("ANY", nameOrEndpoint, pathOrCallback, q, cb);
   }
 
-  public add<N extends string, U>(
+  public add<_Name extends string, _PTypes, _Path extends string, _QS extends {[key: string]: ParamType<any>}>(
     method: Method,
-    endpoint: Endpoint<N, U>,
-    callback: RouteCallback<U>
-  ): Router<T & {[P in N]: Route<N, U>}> {
-    const route: Route<N, U> = {method, endpoint, callback};
-    return new Router({...this.args, routes: [...this.args.routes, route]});
+    nameOrEndpoint: _Name | Endpoint<_Name, _PTypes>,
+    pathOrCallback: _Path | IntRouteCallback<_Payload, _PTypes>,
+    q?: _QS,
+    cb?: IntRouteCallback<_Payload, ExtractRouteParams<_Path> & _QS>
+  ): any {
+    let endpoint: Endpoint<_Name, _PTypes>;
+    let callback: IntRouteCallback<_Payload, _PTypes>;
+    if (nameOrEndpoint instanceof Endpoint && typeof pathOrCallback === "function") {
+      endpoint = nameOrEndpoint;
+      callback = pathOrCallback;
+    } else {
+      endpoint = Endpoint.build(nameOrEndpoint as _Name, pathOrCallback as _Path, q!) as any;
+      callback = cb as any;
+    }
+    const route: Route<_Name, _PTypes, _Routes, _Payload> = {
+      method,
+      endpoint,
+      callback: cb as any,
+    };
+    return new Router(this.payload, {...this.args, routes: [...this.args.routes, route]});
   }
 
   public handle(method: Method, url: string): boolean {
@@ -92,7 +216,7 @@ export class Router<T> {
       if (route.method === method || route.method === "ANY") {
         const endpointMatch = route.endpoint.match(url);
         if (endpointMatch != null) {
-          route.callback(method, url, endpointMatch);
+          route.callback({payload: this.payload, method, url, match: endpointMatch});
           return true;
         }
       }
@@ -100,7 +224,9 @@ export class Router<T> {
     return false;
   }
 
-  public endpoint<U extends keyof T>(name: U): T[U] extends Route<any, any> ? T[U]["endpoint"] : never {
+  public endpoint<U extends keyof _Routes>(
+    name: U
+  ): _Routes[U] extends Route<any, any, any, any> ? _Routes[U]["endpoint"] : never {
     return this.args.routes.find((r) => r.endpoint.name === name)!.endpoint as any;
   }
 }

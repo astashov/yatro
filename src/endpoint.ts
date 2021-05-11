@@ -2,26 +2,26 @@ import type {Type} from "io-ts";
 import type {EndpointMatch, ExtractParam, ExtractRouteParams, GetTSParams} from "./types";
 import {decode, encode} from "./utils";
 
-export interface Param<A extends string, B extends ParamType<C>, C> {
-  name: A;
-  type: B;
+export interface Param<_Name extends string, _PType extends ParamType<C>, C> {
+  name: _Name;
+  type: _PType;
 }
 
-export type ParamType<A = any> = Type<A> | "string" | "number";
+export type ParamType<_TSType = any> = Type<_TSType> | "string" | "number";
 
 export type EndpointArgs = {
   parts: (string | Param<any, any, any>)[];
   queryParams: {[key: string]: ParamType};
 };
 
-export class Endpoint<N extends string, T = {}> {
+export class Endpoint<_Name extends string, _PTypes = {}> {
   private readonly args: EndpointArgs;
 
-  public static build<N extends string, T extends string, Q extends {[key: string]: ParamType<any>}>(
-    name: N,
-    path: T,
-    params: Q
-  ): Endpoint<N, ExtractRouteParams<T> & Q> {
+  public static build<_Name extends string, _Path extends string, _QS extends {[key: string]: ParamType<any>}>(
+    name: _Name,
+    path: _Path,
+    params: _QS
+  ): Endpoint<_Name, ExtractRouteParams<_Path> & _QS> {
     const parts = path
       .split("/")
       .filter((p) => p)
@@ -40,19 +40,19 @@ export class Endpoint<N extends string, T = {}> {
     return new Endpoint(name, {parts, queryParams: params});
   }
 
-  constructor(public readonly name: N, args: Partial<EndpointArgs> = {}) {
+  constructor(public readonly name: _Name, args: Partial<EndpointArgs> = {}) {
     this.args = {
       parts: args.parts || [],
       queryParams: args.queryParams || {},
     };
   }
 
-  public p(name: string): Endpoint<N, T>;
-  public p<P extends string, A extends ExtractParam<P>, B extends ParamType<C>, C>(
-    name: P,
-    type: B
-  ): Endpoint<N, T & {[key in A]: B}>;
-  public p<Q extends {[key: string]: ParamType<any>}>(params: Q): Endpoint<N, T & Q>;
+  public p(name: string): Endpoint<_Name, _PTypes>;
+  public p<_Name extends string, _ParamName extends ExtractParam<_Name>, _PType extends ParamType<C>, C>(
+    name: _Name,
+    type: _PType
+  ): Endpoint<_Name, _PTypes & {[key in _ParamName]: _PType}>;
+  public p<_QS extends {[key: string]: ParamType<any>}>(params: _QS): Endpoint<_Name, _PTypes & _QS>;
   public p(nameOrParams: any, type?: ParamType<any>): Endpoint<any, any> {
     if (type != null) {
       const paramName = nameOrParams.replace(/^:/, "");
@@ -67,7 +67,7 @@ export class Endpoint<N extends string, T = {}> {
     }
   }
 
-  public match(uri: string): EndpointMatch<T> | undefined {
+  public match(uri: string): EndpointMatch<_PTypes> | undefined {
     const url = new URL(uri, "http://www.example.com");
     const urlPathParts = url.pathname.split("/").filter((p) => p);
     const params: Record<string, any> = {};
@@ -114,10 +114,10 @@ export class Endpoint<N extends string, T = {}> {
       delete searchParams[key];
     }
 
-    return {params: params as GetTSParams<T>, rest: searchParams};
+    return {params: params as GetTSParams<_PTypes>, rest: searchParams};
   }
 
-  public toUrl(params: GetTSParams<T>, host?: string): string {
+  public toUrl(params: GetTSParams<_PTypes>, host?: string): string {
     const paramsAny: any = params;
     const path =
       "/" +
