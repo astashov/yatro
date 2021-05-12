@@ -2,9 +2,10 @@
 
 It's a prototype of a typesafe router. Basically, it's a combination of several ideas:
 
-- Allow to iteratively build endpoints
+- Everything is typesafe as much as possible
 - Use [Template Literal Types](https://www.typescriptlang.org/docs/handbook/2/template-literal-types.html) and recursive types we can extract parameters from express-like path syntax
 - Use [`io-ts`](https://github.com/gcanti/io-ts) for describing the expected types of path and querystring parameters
+- Allow to iteratively build endpoints
 
 ## Usage
 
@@ -55,7 +56,7 @@ const postCommentsEndpoint = Endpoint.build("/posts/:postName/comments", {
 });
 const addComment = Endpoint.build("/posts/:postName/comments");
 
-const router = new Router()
+const router = new Router({})
   .get(postCommentsEndpoint, (args) => {
     // args.match.params here will be of type {postName: string; page: number; perPage: number, author: string}
   })
@@ -71,6 +72,7 @@ await router.route("GET", "/posts/cool-post/comments?page=3&perPage=8&author=joh
 ```
 
 That will delegate handling to the first route that matches this method and path.
+
 There's also short syntax for adding routes, without explicit creating of endpoint instances:
 
 ```ts
@@ -90,8 +92,7 @@ const router = new Router({foo: "bar"}).get("/posts/:postName", {}, (args) => {
 });
 ```
 
-You can also specify the desired request and response types when creating a router, then it will be enforced
-in route handlers. All of that together could look like this:
+You can also specify the desired request and response types when creating a router, then it will be enforced in route handlers. You could use it to pass e.g. the request object into the route handlers. All of that together could look like this:
 
 ```ts
 interface IRequest {
@@ -118,8 +119,6 @@ if (result.success) {
   // handle 404 somehow
 }
 ```
-
-You could use it to pass e.g. the request object into the route handlers.
 
 ### Advanced
 
@@ -220,7 +219,7 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url!, "http://localhost:3000");
 
-    const router = new Router<IRequest>({req, res})
+    const router = new Router({req, res})
       .get(postCommentsEndpoint, handlePostComments)
       .get(addCommentEndpoint, handleAddComment);
 

@@ -98,6 +98,9 @@ export class Endpoint<_PTypes = {}> {
       searchParams[k] = v == null ? undefined : v;
     });
     for (const key of Object.keys(this.args.queryParams)) {
+      if (!searchParams.hasOwnProperty(key)) {
+        return undefined;
+      }
       const result = decode(this.args.queryParams[key], searchParams[key]!);
       if (result.success) {
         if (result.data != null) {
