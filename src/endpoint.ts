@@ -94,21 +94,17 @@ export class Endpoint<_Name extends string, _PTypes = {}> {
       parts.shift();
     }
 
-    console.log("STILL HERE");
-
     const searchParams: Partial<Record<string, string>> = {};
     url.searchParams.forEach((v, k) => {
       searchParams[k] = v == null ? undefined : v;
     });
     for (const key of Object.keys(this.args.queryParams)) {
-      console.log(key, searchParams[key]);
       const result = decode(this.args.queryParams[key], searchParams[key]!);
       if (result.success) {
         if (result.data != null) {
           params[key] = result.data;
         }
       } else {
-        console.log("KEY", key);
         return undefined;
       }
       delete searchParams[key];

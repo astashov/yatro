@@ -67,7 +67,7 @@ const router = new Router()
 To handle an incoming request in a router, you need to pass the HTTP method and the path to it:
 
 ```ts
-router.handle("GET", "/posts/cool-post/comments?page=3&perPage=8&author=john");
+await router.route("GET", "/posts/cool-post/comments?page=3&perPage=8&author=john");
 ```
 
 That will delegate handling to the first route that matches this method and path.
@@ -82,9 +82,11 @@ router.endpoint("postComments").toUrl({postName: "cool-post", page: 3, perPage: 
 There's also short syntax for adding routes, without explicit creating of endpoint instances:
 
 ```ts
-const router = new Router().get("postComments", "/posts/:postName/comments", {page: "number"}, (args) => {
-  // args.match.params here will be of type {postName: string; page: number}
-});
+// prettier-ignore
+const router = new Router()
+  .get("postComments", "/posts/:postName/comments", {page: "number"}, (args) => {
+    // args.match.params here will be of type {postName: string; page: number}
+  });
 ```
 
 You can also initialize `Router` with any object, and it will be passed into the routes (and will be typesafe too!)
@@ -94,6 +96,35 @@ const router = new Router({foo: "bar"}).get("post", "/posts/:postName", {}, (arg
   console.log(args.payload);
   // {foo: "bar"}
 });
+```
+
+You can also specify the desired request and response types when creating a router, then it will be enforced
+in route handlers. All of that together could look like this:
+
+````ts
+interface IRequest {
+  path: string;
+  method: string;
+  headers: Partial<Record<string, string>>
+}
+
+interface IResponse {
+  body: string;
+  statusCode: number;
+}
+
+const router = new Router<IRequest, IResponse>(request)
+  .get("post", "/posts/:postName", {}, (args) => {
+    return { statusCode: 200, body: `Post ${args.match.params.postName}` };
+  });
+
+const result = await router.route(request.method, request.path);
+if (result.success) {
+  const response = result.data;
+  // handle response somehow
+} else
+  // handle 404 somehow
+}
 ```
 
 You could use it to pass e.g. the request object into the route handlers.
@@ -110,7 +141,7 @@ const postCommentsEndpoint = Endpoint.build("postComments", "/posts/:id|i/commen
   perPage: "number",
 });
 // Endpoint<"postComments", {id: "number", page: "number", "perPage: "number"}>
-```
+````
 
 We support two built-in types - `"string"` and `"number"`, and if you want them to be optional, you can add `?` to the end, like: `"string?"` and `"number?"`. You also can express any type with [`io-ts`](https://github.com/gcanti/io-ts) type builder.
 For example, let's say we want to add `categoryIds` to our `postComments` endpoint, which is an array of numbers.
@@ -156,54 +187,53 @@ You could use it together with e.g. Node's `http` library like this:
 
 ```ts
 import http from "http";
-import {Endpoint, Router, Method, RouteHandler} from "yatro";
+import {Endpoint, Router, Method, RouteHandler} from ".";
 
 interface IRequest {
   req: http.IncomingMessage;
   res: http.ServerResponse;
 }
 
-const endpoints = {
-  postComments: Endpoint.build("postComments", "/posts/:postName/comments", {
-    page: "number",
-    perPage: "number",
-  }),
-  addComment: Endpoint.build("addComment", "/posts/:postName/comment/create", {}),
-} as const;
-
-const handleAddComments: RouteHandler<IRequest, typeof endpoints.addComment> = (args) => {
+const addCommentEndpoint = Endpoint.build("addComment", "/posts/:postName/comment/create");
+const handleAddComment: RouteHandler<IRequest, void, typeof addCommentEndpoint> = (args) => {
   // ---
   // Add comment to the database somehow here
   // ---
+  const {req, res} = args.payload;
   const {params} = args.match;
   res.statusCode = 302;
-  const location = endpoints.postComments.toUrl(
+  const location = postCommentsEndpoint.toUrl(
     {postName: params.postName, page: 1, perPage: 8},
-    "http://www.example.com"
+    "http://localhost:3000"
   );
   res.setHeader("Location", location);
   res.end("");
 };
 
-const handlePostComments: RouteHandler<IRequest, typeof endpoints.postComments> = (args) => {
+const postCommentsEndpoint = Endpoint.build("postComments", "/posts/:postName/comments", {
+  page: "number",
+  perPage: "number",
+});
+const handlePostComments: RouteHandler<IRequest, void, typeof postCommentsEndpoint> = (args) => {
   // ---
   // Fetch comments from the database somehow here
   // ---
+  const {req, res} = args.payload;
   res.statusCode = 200;
   res.setHeader("Content-Type", "text/html");
-  res.body(renderComments(comments));
+  res.end("Comments");
 };
 
 const server = http.createServer(async (req, res) => {
   try {
-    const url = new URL(req.url!);
+    const url = new URL(req.url!, "http://localhost:3000");
 
-    const router = new Router({req, res})
-      .get(endpoints.postComments, handlePostComments)
-      .post(endpoints.addComment, handleAddComments);
+    const router = new Router<IRequest>({req, res})
+      .get(postCommentsEndpoint, handlePostComments)
+      .get(addCommentEndpoint, handleAddComment);
 
-    const isHandled = router.handle(req.method as Method, url.pathname + url.search);
-    if (!isHandled) {
+    const result = await router.route(req.method as Method, url.pathname + url.search);
+    if (!result.success) {
       res.statusCode = 404;
       res.end("Not Found");
     }
