@@ -142,8 +142,8 @@ It'll look like this:
 import * as t from "io-ts";
 
 const postCommentsEndpoint = Endpoint.build("/posts/:postName/comments", {
-  page: "number",
-  perPage: "number",
+  page: "number?",
+  perPage: "number?",
   categoryIds: t.array(t.number),
 });
 ```
@@ -155,6 +155,13 @@ postCommentsEndpoint.match("/posts/cool-post/comments?page=3&perPage=8&categoryI
 // {params: {postName: "cool-post", page: 3, perPage: 8, categoryIds: [1, 2, 3]}, rest: {}}
 ```
 
+and aldo will match a route without `page` or `perPage` since they are optional:
+
+```ts
+postCommentsEndpoint.match("/posts/cool-post/comments?categoryIds=[1,2,3]");
+// {params: {postName: "cool-post", page: undefined, perPage: undefined, categoryIds: [1, 2, 3]}, rest: {}}
+```
+
 There's also another way of building endpoints - iteratively, by the `.p()` method:
 
 ```ts
@@ -163,8 +170,8 @@ const endpoint = new Endpoint()
   .p(":postName", "string"),
   .p("comments")
   .p({
-    page: "number",
-    perPage: "number",
+    page: "number?",
+    perPage: "number?",
     categoryIds: t.array(t.number),
   })
 });
