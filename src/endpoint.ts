@@ -14,14 +14,13 @@ export type EndpointArgs = {
   queryParams: {[key: string]: ParamType};
 };
 
-export class Endpoint<_Name extends string, _PTypes = {}> {
+export class Endpoint<_PTypes = {}> {
   private readonly args: EndpointArgs;
 
-  public static build<_Name extends string, _Path extends string, _QS extends {[key: string]: ParamType<any>}>(
-    name: _Name,
+  public static build<_Path extends string, _QS extends {[key: string]: ParamType<any>}>(
     path: _Path,
     params?: _QS
-  ): Endpoint<_Name, ExtractRouteParams<_Path> & _QS> {
+  ): Endpoint<ExtractRouteParams<_Path> & _QS> {
     const parts = path
       .split("/")
       .filter((p) => p)
@@ -37,33 +36,33 @@ export class Endpoint<_Name extends string, _PTypes = {}> {
           return p;
         }
       });
-    return new Endpoint(name, {parts, queryParams: params || {}});
+    return new Endpoint({parts, queryParams: params || {}});
   }
 
-  constructor(public readonly name: _Name, args: Partial<EndpointArgs> = {}) {
+  constructor(args: Partial<EndpointArgs> = {}) {
     this.args = {
       parts: args.parts || [],
       queryParams: args.queryParams || {},
     };
   }
 
-  public p(name: string): Endpoint<_Name, _PTypes>;
+  public p(name: string): Endpoint<_PTypes>;
   public p<_Name extends string, _ParamName extends ExtractParam<_Name>, _PType extends ParamType<C>, C>(
     name: _Name,
     type: _PType
-  ): Endpoint<_Name, _PTypes & {[key in _ParamName]: _PType}>;
-  public p<_QS extends {[key: string]: ParamType<any>}>(params: _QS): Endpoint<_Name, _PTypes & _QS>;
-  public p(nameOrParams: any, type?: ParamType<any>): Endpoint<any, any> {
+  ): Endpoint<_PTypes & {[key in _ParamName]: _PType}>;
+  public p<_QS extends {[key: string]: ParamType<any>}>(params: _QS): Endpoint<_PTypes & _QS>;
+  public p(nameOrParams: any, type?: ParamType<any>): Endpoint<any> {
     if (type != null) {
       const paramName = nameOrParams.replace(/^:/, "");
-      return new Endpoint(this.name, {
+      return new Endpoint({
         ...this.args,
         parts: [...this.args.parts, type != null ? {name: paramName, type} : nameOrParams],
       });
     } else if (typeof nameOrParams === "string") {
-      return new Endpoint(this.name, {...this.args, parts: [...this.args.parts, nameOrParams]});
+      return new Endpoint({...this.args, parts: [...this.args.parts, nameOrParams]});
     } else {
-      return new Endpoint(this.name, {...this.args, queryParams: {...this.args.queryParams, ...nameOrParams}});
+      return new Endpoint({...this.args, queryParams: {...this.args.queryParams, ...nameOrParams}});
     }
   }
 
