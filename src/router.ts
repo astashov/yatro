@@ -18,7 +18,7 @@ export type IntRouteCallback<_Payload, _PTypes> = (args: {
   method: Method;
   url: string;
   match: EndpointMatch<_PTypes>;
-}) => void;
+}) => void | Promise<void>;
 
 export type RouterArgs = {
   routes: Route<any, any, any, any>[];
@@ -211,12 +211,12 @@ export class Router<_Routes, _Payload> {
     return new Router(this.payload, {...this.args, routes: [...this.args.routes, route]});
   }
 
-  public handle(method: Method, url: string): boolean {
+  public async handle(method: Method, url: string): Promise<boolean> {
     for (const route of this.args.routes) {
       if (route.method === method || route.method === "ANY") {
         const endpointMatch = route.endpoint.match(url);
         if (endpointMatch != null) {
-          route.callback({payload: this.payload, method, url, match: endpointMatch});
+          await route.callback({payload: this.payload, method, url, match: endpointMatch});
           return true;
         }
       }

@@ -7,7 +7,7 @@ export interface Param<_Name extends string, _PType extends ParamType<C>, C> {
   type: _PType;
 }
 
-export type ParamType<_TSType = any> = Type<_TSType> | "string" | "number";
+export type ParamType<_TSType = any> = Type<_TSType> | "string" | "number" | "string?" | "number?";
 
 export type EndpointArgs = {
   parts: (string | Param<any, any, any>)[];
@@ -20,7 +20,7 @@ export class Endpoint<_Name extends string, _PTypes = {}> {
   public static build<_Name extends string, _Path extends string, _QS extends {[key: string]: ParamType<any>}>(
     name: _Name,
     path: _Path,
-    params: _QS
+    params?: _QS
   ): Endpoint<_Name, ExtractRouteParams<_Path> & _QS> {
     const parts = path
       .split("/")
@@ -37,7 +37,7 @@ export class Endpoint<_Name extends string, _PTypes = {}> {
           return p;
         }
       });
-    return new Endpoint(name, {parts, queryParams: params});
+    return new Endpoint(name, {parts, queryParams: params || {}});
   }
 
   constructor(public readonly name: _Name, args: Partial<EndpointArgs> = {}) {

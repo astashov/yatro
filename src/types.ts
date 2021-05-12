@@ -6,6 +6,10 @@ export type GetIoTSType<A> = A extends "string"
   ? string
   : A extends "number"
   ? number
+  : A extends "number?"
+  ? number | undefined
+  : A extends "string?"
+  ? string | undefined
   : A extends Type<infer B>
   ? B
   : never;

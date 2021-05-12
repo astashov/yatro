@@ -112,7 +112,7 @@ const postCommentsEndpoint = Endpoint.build("postComments", "/posts/:id|i/commen
 // Endpoint<"postComments", {id: "number", page: "number", "perPage: "number"}>
 ```
 
-We support two built-in types - `"string"` and `"number"`, but also you can express any type with [`io-ts`](https://github.com/gcanti/io-ts) type builder.
+We support two built-in types - `"string"` and `"number"`, and if you want them to be optional, you can add `?` to the end, like: `"string?"` and `"number?"`. You also can express any type with [`io-ts`](https://github.com/gcanti/io-ts) type builder.
 For example, let's say we want to add `categoryIds` to our `postComments` endpoint, which is an array of numbers.
 It'll look like this:
 
