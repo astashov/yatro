@@ -15,13 +15,13 @@ You can create typesafe endpoints like this:
 ```ts
 import {Endpoint} from "yatro";
 
-const postCommentsEndpoint = Endpoint.build("postComments", "/posts/:postName/comments", {
+const postCommentsEndpoint = Endpoint.build("/posts/:postName/comments", {
   page: "number",
   perPage: "number",
 });
 ```
 
-That will create an endpoint with type: `Endpoint<"postComments", {postName: "string", page: "number", "perPage: "number"}>`. Note that it even extracts `postName` from the path string - all thanks to the TS 4.1 Template Literal Types feature!
+That will create an endpoint with type: `Endpoint<{postName: "string", page: "number", "perPage: "number"}>`. Note that it even extracts `postName` from the path string - all thanks to the TS 4.1 Template Literal Types feature!
 
 The endpoint has 2 main methods - `match` and `toUrl`. `match` allows to match a path with the endpoint, and it will return the extracted parameters if successful, or `undefined` if it doesn't match:
 
@@ -48,12 +48,12 @@ Now, we can add those `Endpoint`s instances to a `Router`:
 ```ts
 import {Endpoint, Router} from "yatro";
 
-const postCommentsEndpoint = Endpoint.build("postComments", "/posts/:postName/comments", {
+const postCommentsEndpoint = Endpoint.build("/posts/:postName/comments", {
   author: "string",
   page: "number",
   perPage: "number",
 });
-const addComment = Endpoint.build("addComment", "/posts/:postName/comments", {});
+const addComment = Endpoint.build("/posts/:postName/comments");
 
 const router = new Router()
   .get(postCommentsEndpoint, (args) => {
@@ -71,20 +71,12 @@ await router.route("GET", "/posts/cool-post/comments?page=3&perPage=8&author=joh
 ```
 
 That will delegate handling to the first route that matches this method and path.
-
-You can also fetch an endpoint by name from a router, that also will be typesafe:
-
-```ts
-router.endpoint("postComments").toUrl({postName: "cool-post", page: 3, perPage: 8, author: "john"});
-// /posts/cool-post/comments?page=3&perPage=8&author=john
-```
-
 There's also short syntax for adding routes, without explicit creating of endpoint instances:
 
 ```ts
 // prettier-ignore
 const router = new Router()
-  .get("postComments", "/posts/:postName/comments", {page: "number"}, (args) => {
+  .get("/posts/:postName/comments", {page: "number"}, (args) => {
     // args.match.params here will be of type {postName: string; page: number}
   });
 ```
@@ -92,7 +84,7 @@ const router = new Router()
 You can also initialize `Router` with any object, and it will be passed into the routes (and will be typesafe too!)
 
 ```ts
-const router = new Router({foo: "bar"}).get("post", "/posts/:postName", {}, (args) => {
+const router = new Router({foo: "bar"}).get("/posts/:postName", {}, (args) => {
   console.log(args.payload);
   // {foo: "bar"}
 });
@@ -101,7 +93,7 @@ const router = new Router({foo: "bar"}).get("post", "/posts/:postName", {}, (arg
 You can also specify the desired request and response types when creating a router, then it will be enforced
 in route handlers. All of that together could look like this:
 
-````ts
+```ts
 interface IRequest {
   path: string;
   method: string;
@@ -114,7 +106,7 @@ interface IResponse {
 }
 
 const router = new Router<IRequest, IResponse>(request)
-  .get("post", "/posts/:postName", {}, (args) => {
+  .get("/posts/:postName", {}, (args) => {
     return { statusCode: 200, body: `Post ${args.match.params.postName}` };
   });
 
@@ -136,12 +128,12 @@ If you want to make it a number, you could add `|i` to the param name, like: `/p
 It will get `{id: number}` type.
 
 ```ts
-const postCommentsEndpoint = Endpoint.build("postComments", "/posts/:id|i/comments", {
+const postCommentsEndpoint = Endpoint.build("/posts/:id|i/comments", {
   page: "number",
   perPage: "number",
 });
 // Endpoint<"postComments", {id: "number", page: "number", "perPage: "number"}>
-````
+```
 
 We support two built-in types - `"string"` and `"number"`, and if you want them to be optional, you can add `?` to the end, like: `"string?"` and `"number?"`. You also can express any type with [`io-ts`](https://github.com/gcanti/io-ts) type builder.
 For example, let's say we want to add `categoryIds` to our `postComments` endpoint, which is an array of numbers.
@@ -150,7 +142,7 @@ It'll look like this:
 ```ts
 import * as t from "io-ts";
 
-const postCommentsEndpoint = Endpoint.build("postComments", "/posts/:postName/comments", {
+const postCommentsEndpoint = Endpoint.build("/posts/:postName/comments", {
   page: "number",
   perPage: "number",
   categoryIds: t.array(t.number),
@@ -167,7 +159,7 @@ postCommentsEndpoint.match("/posts/cool-post/comments?page=3&perPage=8&categoryI
 There's also another way of building endpoints - iteratively, by the `.p()` method:
 
 ```ts
-const endpoint = new Endpoint("postComments")
+const endpoint = new Endpoint()
   .p("posts")
   .p(":postName", "string"),
   .p("comments")
@@ -194,7 +186,7 @@ interface IRequest {
   res: http.ServerResponse;
 }
 
-const addCommentEndpoint = Endpoint.build("addComment", "/posts/:postName/comment/create");
+const addCommentEndpoint = Endpoint.build("/posts/:postName/comment/create");
 const handleAddComment: RouteHandler<IRequest, void, typeof addCommentEndpoint> = (args) => {
   // ---
   // Add comment to the database somehow here
@@ -210,7 +202,7 @@ const handleAddComment: RouteHandler<IRequest, void, typeof addCommentEndpoint> 
   res.end("");
 };
 
-const postCommentsEndpoint = Endpoint.build("postComments", "/posts/:postName/comments", {
+const postCommentsEndpoint = Endpoint.build("/posts/:postName/comments", {
   page: "number",
   perPage: "number",
 });
