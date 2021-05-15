@@ -72,7 +72,7 @@ export class Endpoint<_PTypes = {}> {
     const params: Record<string, any> = {};
 
     const parts = [...this.args.parts];
-    while (urlPathParts.length > 0) {
+    while (parts.length > 0 && urlPathParts.length > 0) {
       const urlPart = urlPathParts[0];
       const pathPart = parts[0];
       if (typeof pathPart === "string") {
