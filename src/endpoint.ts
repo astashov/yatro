@@ -98,10 +98,11 @@ export class Endpoint<_PTypes = {}> {
       searchParams[k] = v == null ? undefined : v;
     });
     for (const key of Object.keys(this.args.queryParams)) {
-      if (!searchParams.hasOwnProperty(key)) {
+      const type = this.args.queryParams[key];
+      if (!this.isOptionalType(type) && !searchParams.hasOwnProperty(key)) {
         return undefined;
       }
-      const result = decode(this.args.queryParams[key], searchParams[key]!);
+      const result = decode(type, searchParams[key]!);
       if (result.success) {
         if (result.data != null) {
           params[key] = result.data;
@@ -130,12 +131,15 @@ export class Endpoint<_PTypes = {}> {
         .join("/");
     const url = new URL(path, host || "http://example.com");
     for (const key of Object.keys(this.args.queryParams)) {
-      const param = this.args.queryParams[key];
       const value = paramsAny[key];
       if (value != null) {
         url.searchParams.set(key, typeof value === "string" ? value : JSON.stringify(value));
       }
     }
     return host != null ? url.toString() : url.pathname + url.search;
+  }
+
+  private isOptionalType(type: ParamType): boolean {
+    return type === "string?" || type === "number?";
   }
 }

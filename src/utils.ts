@@ -41,7 +41,7 @@ export function encode<A>(type: ParamType<A>, data: unknown): string | undefined
 }
 
 export function decode<A>(type: ParamType<A>, data: string): Either<GetIoTSType<A>> {
-  if (type === "string" || (typeof type !== "string" && type.name === "string")) {
+  if (type === "string" || type === "string?" || (typeof type !== "string" && type.name === "string")) {
     return {success: true, data: data as any};
   } else {
     const value = stringToValue(data);
