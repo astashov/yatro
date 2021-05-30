@@ -9,6 +9,7 @@
     "noUnusedLocals": false,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
+    "noEmit": true,
     "sourceMap": true,
     "pretty": true,
     "strict": true,
@@ -16,5 +17,5 @@
     "outDir": "dist",
     "resolveJsonModule": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "test/**/*"]
 }
