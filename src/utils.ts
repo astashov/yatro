@@ -1,5 +1,5 @@
-import type {ParamType} from "./endpoint";
-import type {Either, GetIoTSType} from "./types";
+import type { ParamType } from "./endpoint";
+import type { Either, GetIoTSType } from "./types";
 
 export function stringToValue(value?: string): unknown {
   if (value == null) {
@@ -26,7 +26,10 @@ export function validate<A>(type: ParamType<A>, data: unknown): boolean {
   }
 }
 
-export function encode<A>(type: ParamType<A>, data: unknown): string | undefined {
+export function encode<A>(
+  type: ParamType<A>,
+  data: unknown
+): string | undefined {
   if (type === "string") {
     return `${data}`;
   } else if (type === "string?") {
@@ -40,16 +43,23 @@ export function encode<A>(type: ParamType<A>, data: unknown): string | undefined
   }
 }
 
-export function decode<A>(type: ParamType<A>, data: string): Either<GetIoTSType<A>> {
-  if (type === "string" || type === "string?" || (typeof type !== "string" && type.name === "string")) {
-    return {success: true, data: data as any};
+export function decode<A>(
+  type: ParamType<A>,
+  data: string
+): Either<GetIoTSType<A>> {
+  if (
+    type === "string" ||
+    type === "string?" ||
+    (typeof type !== "string" && type.name === "string")
+  ) {
+    return { success: true, data: decodeURIComponent(data) as any };
   } else {
     const value = stringToValue(data);
     const isValid = validate(type, value);
     if (isValid) {
-      return {success: true, data: value as any};
+      return { success: true, data: value as any };
     } else {
-      return {success: false, error: "Can't decode"};
+      return { success: false, error: "Can't decode" };
     }
   }
 }
