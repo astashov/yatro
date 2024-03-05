@@ -72,6 +72,9 @@ export class Endpoint<_PTypes = {}> {
     const params: Record<string, any> = {};
 
     const parts = [...this.args.parts];
+    if (parts.length !== urlPathParts.length) {
+      return undefined;
+    }
     while (parts.length > 0 && urlPathParts.length > 0) {
       const urlPart = urlPathParts[0];
       const pathPart = parts[0];
